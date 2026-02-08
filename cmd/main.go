@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"finance/config"
+	"finance/docs"
 	"finance/internal/handler"
 	"finance/internal/repository"
 	"finance/internal/services"
@@ -31,7 +32,6 @@ import (
 // @version         1.0
 // @description     API for finance simulation system.
 
-// @host            localhost:8181
 // @BasePath        /
 // @schemes   http https
 func main() {
@@ -81,6 +81,7 @@ func main() {
 	handler := handler.NewHandler(svc, l)
 	r := gin.Default()
 
+	docs.SwaggerInfo.Host = fmt.Sprintf("%s:%d", cfg.AppHost, cfg.HttpPort)
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	r.GET("/limits", handler.ListUserLimit)
