@@ -12,6 +12,7 @@ type Config struct {
 	AppVersion  string `env:"APP_VERSION"`
 	DSN         string `env:"DSN"`
 	LogLevel    string `env:"LOG_LEVEL"`
+	AppHost     string `env:"APP_HOST"`
 	HttpPort    int    `env:"HTTP_PORT"`
 }
 

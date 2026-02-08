@@ -31,6 +31,7 @@ services:
       - SERVICE_NAME=finance-system
       - APP_VERSION=v1
       - LOG_LEVEL=debug
+      - APP_HOST=localhost
       - HTTP_PORT=8080
     depends_on:
       db:
