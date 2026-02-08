@@ -1,0 +1,210 @@
+basePath: /
+definitions:
+  finance_internal_model.CalculateInstallmentsRequest:
+    properties:
+      amount:
+        type: number
+    required:
+    - amount
+    type: object
+  finance_internal_model.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  finance_internal_model.InstallmentSimulation:
+    properties:
+      monthly_installment:
+        type: number
+      tenor:
+        type: integer
+      total_margin:
+        type: number
+      total_payment:
+        type: number
+    type: object
+  finance_internal_model.ListTenor:
+    properties:
+      tenor_value:
+        type: integer
+    type: object
+  finance_internal_model.ScheduleDetail:
+    properties:
+      due_date:
+        type: string
+      installment_amount:
+        type: number
+    type: object
+  finance_internal_model.SubmitFinancingRequest:
+    properties:
+      amount:
+        type: number
+      facility_limit_id:
+        type: integer
+      start_date:
+        type: string
+      tenor:
+        type: integer
+      user_id:
+        type: integer
+    required:
+    - amount
+    - facility_limit_id
+    - start_date
+    - tenor
+    - user_id
+    type: object
+  finance_internal_model.SubmitFinancingResponse:
+    properties:
+      amount:
+        type: number
+      facility_limit_id:
+        type: integer
+      monthly_installment:
+        type: number
+      schedule:
+        items:
+          $ref: '#/definitions/finance_internal_model.ScheduleDetail'
+        type: array
+      start_date:
+        type: string
+      tenor:
+        type: integer
+      total_margin:
+        type: number
+      total_payment:
+        type: number
+      user_facility_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  finance_internal_model.UserLimit:
+    properties:
+      id:
+        type: integer
+      limit_amount:
+        type: number
+      limit_id:
+        type: integer
+      name:
+        type: string
+      phone:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API for finance simulation system.
+  title: Finance System API
+  version: "1.0"
+paths:
+  /calculate-installments:
+    post:
+      consumes:
+      - application/json
+      description: Calculate Installment Simulation
+      parameters:
+      - description: Calculation Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/finance_internal_model.CalculateInstallmentsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/finance_internal_model.InstallmentSimulation'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/finance_internal_model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/finance_internal_model.ErrorResponse'
+      summary: Calculate Installment Simulation
+      tags:
+      - Finance
+  /limits:
+    get:
+      consumes:
+      - application/json
+      description: Get User Limits
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/finance_internal_model.UserLimit'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/finance_internal_model.ErrorResponse'
+      summary: Get User Limits
+      tags:
+      - Finance
+  /submit-financing:
+    post:
+      consumes:
+      - application/json
+      description: Submit Finance
+      parameters:
+      - description: Submit Request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/finance_internal_model.SubmitFinancingRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/finance_internal_model.SubmitFinancingResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/finance_internal_model.ErrorResponse'
+        "422":
+          description: Unprocessable Entity
+          schema:
+            $ref: '#/definitions/finance_internal_model.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/finance_internal_model.ErrorResponse'
+      summary: Submit Finance
+      tags:
+      - Finance
+  /tenors:
+    get:
+      consumes:
+      - application/json
+      description: Get Tenor List
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/finance_internal_model.ListTenor'
+            type: array
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/finance_internal_model.ErrorResponse'
+      summary: Get Tenor List
+      tags:
+      - Finance
+swagger: "2.0"

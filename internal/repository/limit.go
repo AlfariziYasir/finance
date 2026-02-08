@@ -1,0 +1,70 @@
+package repository
+
+import (
+	"context"
+	"errors"
+	"finance/internal/model"
+	"finance/pkg/postgres"
+
+	"github.com/jackc/pgx/v5"
+)
+
+type LimitRepository interface {
+	Get(ctx context.Context, userID int) (*model.UserFacilityLimit, error)
+	Update(ctx context.Context, id int, amount int) error
+}
+
+type limitRepository struct {
+	db postgres.PgxExecutor
+}
+
+func NewLimitRepository(db postgres.PgxExecutor) LimitRepository {
+	return &limitRepository{db: db}
+}
+
+func (r *limitRepository) getExecutor(ctx context.Context) postgres.PgxExecutor {
+	tx, ok := ctx.Value(postgres.TrxKey{}).(pgx.Tx)
+	if ok {
+		return tx
+	}
+
+	return r.db
+}
+
+func (r *limitRepository) Get(ctx context.Context, userID int) (*model.UserFacilityLimit, error) {
+	db := r.getExecutor(ctx)
+
+	query := `SELECT facility_limit_id, user_id, limit_amount FROM user_facility_limits WHERE user_id = $1`
+	rows, err := db.Query(ctx, query, userID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("user facility limit not found")
+		}
+		return nil, err
+	}
+
+	limit, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.UserFacilityLimit])
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, errors.New("user facility limit not found")
+		}
+		return nil, err
+	}
+
+	return limit, nil
+}
+
+func (r *limitRepository) Update(ctx context.Context, id int, amount int) error {
+	db := r.getExecutor(ctx)
+
+	query := `UPDATE user_facility_limits SET limit_amount = $1 WHERE facility_limit_id = $2`
+	cmd, err := db.Exec(ctx, query, amount, id)
+	if err != nil {
+		return err
+	}
+	if cmd.RowsAffected() == 0 {
+		return errors.New("no rows updated")
+	}
+
+	return nil
+}
