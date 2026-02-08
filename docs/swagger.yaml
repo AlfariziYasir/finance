@@ -92,7 +92,7 @@ definitions:
       phone:
         type: string
     type: object
-host: localhost:8080
+host: localhost:8181
 info:
   contact: {}
   description: API for finance simulation system.
@@ -207,4 +207,7 @@ paths:
       summary: Get Tenor List
       tags:
       - Finance
+schemes:
+- http
+- https
 swagger: "2.0"

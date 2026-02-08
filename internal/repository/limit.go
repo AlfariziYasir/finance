@@ -11,7 +11,7 @@ import (
 
 type LimitRepository interface {
 	Get(ctx context.Context, userID int) (*model.UserFacilityLimit, error)
-	Update(ctx context.Context, id int, amount int) error
+	Update(ctx context.Context, id int, amount int64) error
 }
 
 type limitRepository struct {
@@ -34,7 +34,7 @@ func (r *limitRepository) getExecutor(ctx context.Context) postgres.PgxExecutor 
 func (r *limitRepository) Get(ctx context.Context, userID int) (*model.UserFacilityLimit, error) {
 	db := r.getExecutor(ctx)
 
-	query := `SELECT facility_limit_id, user_id, limit_amount FROM user_facility_limits WHERE user_id = $1`
+	query := `SELECT * FROM user_facility_limits WHERE user_id = $1`
 	rows, err := db.Query(ctx, query, userID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -54,10 +54,10 @@ func (r *limitRepository) Get(ctx context.Context, userID int) (*model.UserFacil
 	return limit, nil
 }
 
-func (r *limitRepository) Update(ctx context.Context, id int, amount int) error {
+func (r *limitRepository) Update(ctx context.Context, id int, amount int64) error {
 	db := r.getExecutor(ctx)
 
-	query := `UPDATE user_facility_limits SET limit_amount = $1 WHERE facility_limit_id = $2`
+	query := `UPDATE user_facility_limits SET limit_amount = $1 WHERE id = $2`
 	cmd, err := db.Exec(ctx, query, amount, id)
 	if err != nil {
 		return err

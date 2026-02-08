@@ -79,7 +79,7 @@ func (h *Handler) Installment(c *gin.Context) {
 		return
 	}
 
-	if req.Amount.IsZero() || req.Amount.IsNegative() {
+	if req.Amount == 0 || req.Amount < 0 {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{Error: "amount must be greater than 0"})
 		return
 	}
@@ -114,7 +114,7 @@ func (h *Handler) Submit(c *gin.Context) {
 		return
 	}
 
-	if req.Amount.IsZero() || req.Amount.IsNegative() {
+	if req.Amount == 0 || req.Amount < 0 {
 		c.JSON(http.StatusBadRequest, model.ErrorResponse{Error: "amount must be greater than 0"})
 		return
 	}

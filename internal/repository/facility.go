@@ -37,9 +37,9 @@ func (r *facilityRepository) Add(ctx context.Context, facility *model.UserFacili
 	var id int
 
 	query := `
-		insert into user_facilities (user_id, facility_limit_id, amount, tenor, start_date, monthly_installment, total_margin, total_payment, created_at) 
-		values ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
-		returning id`
+		INSERT INTO user_facilities (user_id, facility_limit_id, amount, tenor, start_date, monthly_installment, total_margin, total_payment, created_at) 
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+		RETURNING id`
 	err := db.QueryRow(ctx, query, facility.UserID, facility.FacilityLimitID, facility.Amount, facility.Tenor, facility.StartDate, facility.MonthlyInstallment, facility.TotalMargin, facility.TotalPayment, facility.CreatedAt).Scan(&id)
 	if err != nil {
 		return 0, err
