@@ -1,0 +1,64 @@
+package postgres
+
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+type TrxKey struct{}
+
+type Trx interface {
+	Begin(ctx context.Context) (context.Context, error)
+	Commit(ctx context.Context) error
+	Rollback(ctx context.Context) error
+}
+
+type unitOfWork struct {
+	pool *pgxpool.Pool
+}
+
+func NewTransaction(pool *pgxpool.Pool) Trx {
+	return &unitOfWork{pool: pool}
+}
+
+func (u *unitOfWork) Begin(ctx context.Context) (context.Context, error) {
+	tx, err := u.pool.Begin(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to begin tx: %w", err)
+	}
+
+	return context.WithValue(ctx, TrxKey{}, tx), nil
+}
+
+func (u *unitOfWork) Commit(ctx context.Context) error {
+	tx, ok := ctx.Value(TrxKey{}).(pgx.Tx)
+	if !ok {
+		return errors.New("no transaction found in context")
+	}
+
+	err := tx.Commit(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to commit: %w", err)
+	}
+
+	return nil
+}
+
+func (u *unitOfWork) Rollback(ctx context.Context) error {
+	tx, ok := ctx.Value(TrxKey{}).(pgx.Tx)
+	if !ok {
+		return errors.New("no transaction found in context")
+	}
+
+	if err := tx.Rollback(ctx); err != nil {
+		if errors.Is(err, pgx.ErrTxClosed) {
+			return nil
+		}
+		return fmt.Errorf("failed to rollback: %w", err)
+	}
+	return nil
+}
