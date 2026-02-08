@@ -19,7 +19,7 @@ type UserFacilityLimit struct {
 }
 
 type Tenor struct {
-	TenorID    int64 `json:"tenor_id" db:"tenor_id"`
+	TenorID    int64 `json:"tenor_id" db:"id"`
 	TenorValue int   `json:"tenor_value" db:"tenor_value"`
 }
 
@@ -44,40 +44,40 @@ type UserFacilityDetail struct {
 }
 
 type CalculateInstallmentsRequest struct {
-	Amount decimal.Decimal `json:"amount" binding:"required,gt=0"`
+	Amount int64 `json:"amount" binding:"required,gt=0" swaggertype:"number"`
 }
 
 type InstallmentSimulation struct {
 	Tenor              int             `json:"tenor"`
-	MonthlyInstallment decimal.Decimal `json:"monthly_installment"`
-	TotalMargin        decimal.Decimal `json:"total_margin"`
-	TotalPayment       decimal.Decimal `json:"total_payment"`
+	MonthlyInstallment decimal.Decimal `json:"monthly_installment" swaggertype:"number"`
+	TotalMargin        decimal.Decimal `json:"total_margin" swaggertype:"number"`
+	TotalPayment       decimal.Decimal `json:"total_payment" swaggertype:"number"`
 }
 
 type SubmitFinancingRequest struct {
-	UserID          int64           `json:"user_id" binding:"required"`
-	FacilityLimitID int64           `json:"facility_limit_id" binding:"required"`
-	Amount          decimal.Decimal `json:"amount" binding:"required,gt=0"`
-	Tenor           int             `json:"tenor" binding:"required"`
-	StartDate       string          `json:"start_date" binding:"required,datetime=2006-01-02,notpast"`
+	UserID          int64  `json:"user_id" binding:"required"`
+	FacilityLimitID int64  `json:"facility_limit_id" binding:"required"`
+	Amount          int64  `json:"amount" binding:"required,gt=0" swaggertype:"number"`
+	Tenor           int    `json:"tenor" binding:"required"`
+	StartDate       string `json:"start_date" binding:"required,datetime=2006-01-02,notpast"`
 }
 
 type SubmitFinancingResponse struct {
 	UserFacilityID     int64            `json:"user_facility_id"`
 	UserID             int64            `json:"user_id"`
 	FacilityLimitID    int64            `json:"facility_limit_id"`
-	Amount             decimal.Decimal  `json:"amount"`
+	Amount             decimal.Decimal  `json:"amount" swaggertype:"number"`
 	Tenor              int              `json:"tenor"`
 	StartDate          string           `json:"start_date"`
-	MonthlyInstallment decimal.Decimal  `json:"monthly_installment"`
-	TotalMargin        decimal.Decimal  `json:"total_margin"`
-	TotalPayment       decimal.Decimal  `json:"total_payment"`
+	MonthlyInstallment decimal.Decimal  `json:"monthly_installment" swaggertype:"number"`
+	TotalMargin        decimal.Decimal  `json:"total_margin" swaggertype:"number"`
+	TotalPayment       decimal.Decimal  `json:"total_payment" swaggertype:"number"`
 	Schedule           []ScheduleDetail `json:"schedule"`
 }
 
 type ScheduleDetail struct {
 	DueDate           string          `json:"due_date"`
-	InstallmentAmount decimal.Decimal `json:"installment_amount"`
+	InstallmentAmount decimal.Decimal `json:"installment_amount" swaggertype:"number"`
 }
 
 type UserLimit struct {
@@ -85,7 +85,7 @@ type UserLimit struct {
 	Name        string          `json:"name"`
 	Phone       string          `json:"phone"`
 	LimitId     int64           `json:"limit_id"`
-	LimitAmount decimal.Decimal `json:"limit_amount"`
+	LimitAmount decimal.Decimal `json:"limit_amount" swaggertype:"number"`
 }
 
 type ListTenor struct {

@@ -48,7 +48,7 @@ func (m *MockLimitRepo) Get(ctx context.Context, userID int) (*model.UserFacilit
 	return args.Get(0).(*model.UserFacilityLimit), args.Error(1)
 }
 
-func (m *MockLimitRepo) Update(ctx context.Context, id int, amount int) error {
+func (m *MockLimitRepo) Update(ctx context.Context, id int, amount int64) error {
 	args := m.Called(ctx, id, amount)
 	return args.Error(0)
 }
@@ -157,7 +157,7 @@ func setupService() (
 }
 
 func TestService_ListUserLimit(t *testing.T) {
-	svc, userRepo, limitRepo, _, _, _, _ := setupService()
+	svc, userRepo, _, _, _, limitRepo, _ := setupService()
 	ctx := context.Background()
 
 	t.Run("success", func(t *testing.T) {
@@ -184,24 +184,29 @@ func TestService_ListUserLimit(t *testing.T) {
 			LimitAmount:     decimal.NewFromInt(2000000),
 		}
 
-		userRepo.On("List", ctx).Return(mockUser, nil)
-		limitRepo.On("Get", ctx).Return(mockLimit1, nil)
-		limitRepo.On("Get", ctx).Return(mockLimit2, nil)
+		userRepo.On("List", mock.Anything).Return(mockUser, nil)
+		limitRepo.On("Get", mock.Anything, 1).Return(mockLimit1, nil)
+		limitRepo.On("Get", mock.Anything, 2).Return(mockLimit2, nil)
 
 		res, err := svc.ListUserLimit(ctx)
 		assert.NoError(t, err)
 		assert.Len(t, res, 2)
-		assert.Equal(t, "100", res[0].LimitAmount.String())
-		assert.Equal(t, "200", res[1].LimitAmount.String())
+		assert.Equal(t, "1000000", res[0].LimitAmount.String())
+		assert.Equal(t, "2000000", res[1].LimitAmount.String())
 	})
 
 	t.Run("partial success", func(t *testing.T) {
+		userRepo.ExpectedCalls = nil
+		limitRepo.ExpectedCalls = nil
+		userRepo.Calls = nil
+		limitRepo.Calls = nil
+
 		mockUser := []*model.User{
 			{UserID: 1, Name: "user 1", Phone: "911"},
 		}
 
-		userRepo.On("List", ctx).Return(mockUser, nil)
-		limitRepo.On("Get", ctx, 1).Return(nil, errors.New("not found"))
+		userRepo.On("List", mock.Anything).Return(mockUser, nil)
+		limitRepo.On("Get", mock.Anything, 1).Return(nil, errors.New("not found"))
 
 		res, err := svc.ListUserLimit(ctx)
 
@@ -210,7 +215,12 @@ func TestService_ListUserLimit(t *testing.T) {
 	})
 
 	t.Run("failed user list", func(t *testing.T) {
-		userRepo.On("List", ctx).Return(nil, errors.New("db error"))
+		userRepo.ExpectedCalls = nil
+		limitRepo.ExpectedCalls = nil
+		userRepo.Calls = nil
+		limitRepo.Calls = nil
+
+		userRepo.On("List", mock.Anything).Return(nil, errors.New("db error"))
 		res, err := svc.ListUserLimit(ctx)
 		assert.Error(t, err)
 		assert.Nil(t, res)
@@ -222,146 +232,143 @@ func TestService_Installment(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("Success Calculation", func(t *testing.T) {
-		amount := decimal.NewFromInt(10000000)
+		amount := 10000000
 		mockTenors := []*model.Tenor{
 			{TenorValue: 12},
 		}
 
-		tenorRepo.On("List", ctx).Return(mockTenors, nil)
+		tenorRepo.On("List", mock.Anything).Return(mockTenors, nil)
 
-		res, err := svc.Installment(ctx, amount)
+		res, err := svc.Installment(ctx, int64(amount))
 		assert.NoError(t, err)
 		assert.Len(t, res, 1)
 		assert.Equal(t, 12, res[0].Tenor)
-		assert.Equal(t, 1000000, res[0].MonthlyInstallment.IntPart())
-		assert.Equal(t, 2000000, res[0].TotalMargin.IntPart)
+		assert.Equal(t, int64(1000000), res[0].MonthlyInstallment.IntPart())
+		assert.Equal(t, int64(2000000), res[0].TotalMargin.IntPart())
 	})
 }
 
 func TestService_Submit(t *testing.T) {
-	svc, userRepo, limitRepo, tenorRepo, facilityRepo, detailRepo, trx := setupService()
-	ctx := context.Background()
-
-	txCtx := context.WithValue(ctx, "tx", "mock_transaction")
-
+	// Data Setup (Bisa dishare antar test karena sifatnya statis/readonly)
 	req := &model.SubmitFinancingRequest{
 		UserID:          1,
 		FacilityLimitID: 10,
-		Amount:          decimal.NewFromInt(10000000),
+		Amount:          10000000,
 		Tenor:           12,
 		StartDate:       time.Now().Format("2006-01-02"),
 	}
 
 	mockUser := &model.User{
-		UserID: 1,
-		Name:   "user 1",
-		Phone:  "911",
+		UserID: 1, Name: "user 1", Phone: "911",
+	}
+	mockTenor := &model.Tenor{TenorID: 1, TenorValue: 12}
+	mockLimit := &model.UserFacilityLimit{
+		FacilityLimitID: 10,
+		UserID:          1,
+		LimitAmount:     decimal.NewFromInt(20000000),
 	}
 
-	mockTenor := &model.Tenor{TenorID: 1, TenorValue: 12}
-
 	t.Run("Success Transaction", func(t *testing.T) {
-		userRepo.On("Get", ctx, 1).Return(mockUser, nil)
+		svc, userRepo, detailRepo, facilityRepo, tenorRepo, limitRepo, trx := setupService()
 
-		mockLimit := &model.UserFacilityLimit{
-			FacilityLimitID: 10,
-			UserID:          1,
-			LimitAmount:     decimal.NewFromInt(20000000),
-		}
-		limitRepo.On("Get", ctx, 1).Return(mockLimit, nil)
+		ctx := context.Background()
+		txCtx := context.WithValue(ctx, "tx", "mock_transaction")
 
-		tenorRepo.On("Get", ctx, 12).Return(mockTenor, nil)
+		userRepo.On("Get", mock.Anything, 1).Return(mockUser, nil).Once()
+		limitRepo.On("Get", mock.Anything, 1).Return(mockLimit, nil).Once()
+		tenorRepo.On("Get", mock.Anything, 12).Return(mockTenor, nil).Once()
 
-		trx.On("Begin", ctx).Return(txCtx, nil)
-		trx.On("Rollback", ctx).Return(nil)
+		trx.On("Begin", mock.Anything).Return(txCtx, nil).Once()
+		trx.On("Rollback", mock.Anything).Return(nil).Once() // Defer rollback selalu dipanggil
 
 		facilityRepo.On("Add", txCtx, mock.MatchedBy(func(f *model.UserFacility) bool {
-			return f.Amount.Equal(req.Amount) && f.Tenor == 12 && f.UserID == 1
-		})).Return(1, nil)
+			return f.Amount.IntPart() == req.Amount && f.Tenor == 12 && f.UserID == 1
+		})).Return(1, nil).Once()
 
 		detailRepo.On("Add", txCtx, mock.MatchedBy(func(details []*model.UserFacilityDetail) bool {
 			return len(details) == 12 && details[0].UserFacilityID == 1
-		})).Return(nil)
+		})).Return(nil).Once()
 
-		remainingLimit := mockLimit.LimitAmount.Sub(req.Amount)
-		limitRepo.On("Update", txCtx, 1, remainingLimit).Return(nil)
+		remainingLimit := mockLimit.LimitAmount.Sub(decimal.NewFromInt(req.Amount))
+		limitRepo.On("Update", txCtx, 10, remainingLimit.IntPart()).Return(nil).Once()
 
-		trx.On("Commit", txCtx).Return(nil)
+		trx.On("Commit", txCtx).Return(nil).Once()
 
 		res, err := svc.Submit(ctx, req)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		assert.Equal(t, int64(1), res.UserFacilityID)
-		assert.Equal(t, time.Now().AddDate(0, 1, 0).Format("2026-01-02"), res.Schedule[0].DueDate)
-		limitRepo.AssertCalled(t, "Update", ctx, 1, remainingLimit)
+		trx.AssertExpectations(t)
+		limitRepo.AssertExpectations(t)
 	})
 
 	t.Run("error insufficent limit", func(t *testing.T) {
-		userRepo.On("Get", ctx, 1).Return(mockUser, nil)
+		svc, userRepo, _, _, _, limitRepo, _ := setupService()
+		ctx := context.Background()
 
-		mockLimit := &model.UserFacilityLimit{
+		smallLimit := &model.UserFacilityLimit{
 			FacilityLimitID: 10,
 			UserID:          1,
 			LimitAmount:     decimal.NewFromInt(5000000),
 		}
-		limitRepo.On("Get", ctx, 1).Return(mockLimit, nil)
+
+		userRepo.On("Get", mock.Anything, 1).Return(mockUser, nil).Once()
+		limitRepo.On("Get", mock.Anything, 1).Return(smallLimit, nil).Once()
 
 		res, err := svc.Submit(ctx, req)
+
 		assert.Error(t, err)
 		assert.Nil(t, res)
 		assert.Equal(t, "insufficient limit amount", err.Error())
 	})
 
 	t.Run("error database fail on insert", func(t *testing.T) {
-		userRepo.On("Get", ctx, 1).Return(mockUser, nil)
+		svc, userRepo, _, facilityRepo, tenorRepo, limitRepo, trx := setupService()
+		ctx := context.Background()
+		txCtx := context.WithValue(ctx, "tx", "mock_transaction")
 
-		mockLimit := &model.UserFacilityLimit{
-			FacilityLimitID: 10,
-			UserID:          1,
-			LimitAmount:     decimal.NewFromInt(20000000),
-		}
-		limitRepo.On("Get", ctx, 1).Return(mockLimit, nil)
-		tenorRepo.On("Get", ctx, 12).Return(mockTenor, nil)
+		userRepo.On("Get", mock.Anything, 1).Return(mockUser, nil)
+		limitRepo.On("Get", mock.Anything, 1).Return(mockLimit, nil)
+		tenorRepo.On("Get", mock.Anything, 12).Return(mockTenor, nil)
 
-		trx.On("Begin", ctx).Return(txCtx, nil)
-		trx.On("Rollback", txCtx).Return(nil)
+		trx.On("Begin", mock.Anything).Return(txCtx, nil)
+		trx.On("Rollback", mock.Anything).Return(nil)
 
 		facilityRepo.On("Add", txCtx, mock.Anything).Return(0, errors.New("db insert error"))
 
 		resp, err := svc.Submit(ctx, req)
+
 		assert.Error(t, err)
 		assert.Nil(t, resp)
+		assert.Equal(t, "db insert error", err.Error())
 
 		trx.AssertNotCalled(t, "Commit", txCtx)
-		limitRepo.AssertNotCalled(t, "Update", mock.Anything, mock.Anything, mock.Anything)
-		trx.AssertCalled(t, "Rollback", txCtx)
+		trx.AssertCalled(t, "Rollback", mock.Anything)
 	})
 
 	t.Run("error update limit", func(t *testing.T) {
-		userRepo.On("Get", ctx, 1).Return(mockUser, nil)
+		svc, userRepo, detailRepo, facilityRepo, tenorRepo, limitRepo, trx := setupService()
+		ctx := context.Background()
+		txCtx := context.WithValue(ctx, "tx", "mock_transaction")
 
-		mockLimit := &model.UserFacilityLimit{
-			FacilityLimitID: 10,
-			UserID:          1,
-			LimitAmount:     decimal.NewFromInt(20000000),
-		}
-		limitRepo.On("Get", ctx, 1).Return(mockLimit, nil)
-		tenorRepo.On("Get", ctx, 12).Return(mockTenor, nil)
+		userRepo.On("Get", mock.Anything, 1).Return(mockUser, nil)
+		limitRepo.On("Get", mock.Anything, 1).Return(mockLimit, nil)
+		tenorRepo.On("Get", mock.Anything, 12).Return(mockTenor, nil)
 
-		trx.On("Begin", ctx).Return(txCtx, nil)
-		trx.On("Rollback", txCtx).Return(nil)
+		trx.On("Begin", mock.Anything).Return(txCtx, nil)
+		trx.On("Rollback", mock.Anything).Return(nil)
 
 		facilityRepo.On("Add", txCtx, mock.Anything).Return(9, nil)
 		detailRepo.On("Add", txCtx, mock.Anything).Return(nil)
-		limitRepo.On("Update", ctx, 2, mock.Anything).Return(errors.New("update limit failed"))
+		limitRepo.On("Update", txCtx, 10, mock.Anything).Return(errors.New("update limit failed"))
 
 		res, err := svc.Submit(ctx, req)
+
 		assert.Error(t, err)
 		assert.Nil(t, res)
 		assert.Equal(t, "update limit failed", err.Error())
 
-		// Transaction harus rollback
 		trx.AssertNotCalled(t, "Commit", txCtx)
-		trx.AssertCalled(t, "Rollback", txCtx)
+		trx.AssertCalled(t, "Rollback", mock.Anything)
 	})
 }

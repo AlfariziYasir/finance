@@ -16,7 +16,7 @@ import (
 type Service interface {
 	ListUserLimit(ctx context.Context) ([]*model.UserLimit, error)
 	TenorList(ctx context.Context) ([]*model.ListTenor, error)
-	Installment(ctx context.Context, amount decimal.Decimal) ([]*model.InstallmentSimulation, error)
+	Installment(ctx context.Context, amount int64) ([]*model.InstallmentSimulation, error)
 	Submit(ctx context.Context, req *model.SubmitFinancingRequest) (*model.SubmitFinancingResponse, error)
 }
 
@@ -51,13 +51,13 @@ func NewService(
 }
 
 func (s *service) calculateFinancials(amount decimal.Decimal, tenor int) (monthly, totalMargin, totalPayment decimal.Decimal) {
-	rate := decimal.NewFromFloat(0.20)
+	rate := decimal.RequireFromString("0.20")
 	tenorDec := decimal.NewFromInt(int64(tenor))
 	monthsInYear := decimal.NewFromInt(12)
 
-	totalMargin = amount.Mul(rate).Mul(tenorDec).Div(monthsInYear)
+	totalMargin = amount.Mul(rate).Mul(tenorDec).Div(monthsInYear).Round(2)
 	totalPayment = amount.Add(totalMargin)
-	monthly = totalPayment.Div(tenorDec).Round(2)
+	monthly = totalPayment.DivRound(tenorDec, 2)
 
 	return monthly, totalMargin, totalPayment
 }
@@ -106,7 +106,7 @@ func (s *service) TenorList(ctx context.Context) ([]*model.ListTenor, error) {
 	return response, nil
 }
 
-func (s *service) Installment(ctx context.Context, amount decimal.Decimal) ([]*model.InstallmentSimulation, error) {
+func (s *service) Installment(ctx context.Context, amount int64) ([]*model.InstallmentSimulation, error) {
 	var response []*model.InstallmentSimulation
 
 	tenors, err := s.tenorRepo.List(ctx)
@@ -116,7 +116,7 @@ func (s *service) Installment(ctx context.Context, amount decimal.Decimal) ([]*m
 	}
 
 	for _, tenor := range tenors {
-		monthly, margin, payment := s.calculateFinancials(amount, tenor.TenorValue)
+		monthly, margin, payment := s.calculateFinancials(decimal.NewFromInt(amount), tenor.TenorValue)
 
 		response = append(response, &model.InstallmentSimulation{
 			Tenor:              tenor.TenorValue,
@@ -130,6 +130,8 @@ func (s *service) Installment(ctx context.Context, amount decimal.Decimal) ([]*m
 }
 
 func (s *service) Submit(ctx context.Context, req *model.SubmitFinancingRequest) (*model.SubmitFinancingResponse, error) {
+	amountDec := decimal.NewFromInt(req.Amount)
+
 	startDate, err := time.Parse("2006-01-02", req.StartDate)
 	if err != nil {
 		s.log.Error("invalid date format", zap.Error(err))
@@ -148,9 +150,9 @@ func (s *service) Submit(ctx context.Context, req *model.SubmitFinancingRequest)
 		return nil, err
 	}
 
-	if req.Amount.GreaterThan(limit.LimitAmount) {
+	if amountDec.GreaterThan(limit.LimitAmount) {
 		s.log.Warn("amount request over the limit",
-			zap.String("req", req.Amount.String()),
+			zap.Int64("req", req.Amount),
 			zap.String("limit", limit.LimitAmount.String()))
 		return nil, errors.New("insufficient limit amount")
 	}
@@ -161,11 +163,11 @@ func (s *service) Submit(ctx context.Context, req *model.SubmitFinancingRequest)
 		return nil, err
 	}
 
-	monthlyInstallment, margin, payment := s.calculateFinancials(req.Amount, tenor.TenorValue)
+	monthlyInstallment, margin, payment := s.calculateFinancials(amountDec, tenor.TenorValue)
 	facility := model.UserFacility{
 		UserID:             user.UserID,
 		FacilityLimitID:    limit.FacilityLimitID,
-		Amount:             req.Amount,
+		Amount:             amountDec,
 		Tenor:              tenor.TenorValue,
 		StartDate:          startDate,
 		MonthlyInstallment: monthlyInstallment,
@@ -210,8 +212,8 @@ func (s *service) Submit(ctx context.Context, req *model.SubmitFinancingRequest)
 		return nil, err
 	}
 
-	limit.LimitAmount = limit.LimitAmount.Sub(req.Amount)
-	err = s.limitRepo.Update(txCtx, int(limit.FacilityLimitID), int(limit.LimitAmount.IntPart()))
+	limit.LimitAmount = limit.LimitAmount.Sub(amountDec)
+	err = s.limitRepo.Update(txCtx, int(limit.FacilityLimitID), limit.LimitAmount.IntPart())
 	if err != nil {
 		s.log.Error("failed to update limit user", zap.Error(err))
 		return nil, err
@@ -227,7 +229,7 @@ func (s *service) Submit(ctx context.Context, req *model.SubmitFinancingRequest)
 		UserFacilityID:     int64(facilityID),
 		UserID:             user.UserID,
 		FacilityLimitID:    limit.FacilityLimitID,
-		Amount:             req.Amount,
+		Amount:             decimal.NewFromInt(req.Amount),
 		Tenor:              tenor.TenorValue,
 		StartDate:          startDate.Format("2006-01-02"),
 		MonthlyInstallment: monthlyInstallment,

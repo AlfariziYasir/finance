@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"regexp"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
@@ -21,17 +22,19 @@ func TestLimitRepository_Get(t *testing.T) {
 		rows := pgxmock.NewRows([]string{"id", "user_id", "limit_amount"}).
 			AddRow(1, 10, decimal.NewFromInt(10000000))
 
-		mock.ExpectQuery("SELECT * FROM user_facility_limits").
+		query := regexp.QuoteMeta("SELECT * FROM user_facility_limits WHERE user_id = $1")
+		mock.ExpectQuery(query).
 			WithArgs(10).
 			WillReturnRows(rows)
 
 		res, err := repo.Get(context.Background(), 10)
 		assert.NoError(t, err)
-		assert.Equal(t, 1, res.FacilityLimitID)
+		assert.Equal(t, int64(1), res.FacilityLimitID)
 	})
 
 	t.Run("Not Found", func(t *testing.T) {
-		mock.ExpectQuery("SELECT * FROM user_facility_limits").
+		query := regexp.QuoteMeta("SELECT * FROM user_facility_limits WHERE user_id = $1")
+		mock.ExpectQuery(query).
 			WithArgs(99).
 			WillReturnError(pgx.ErrNoRows)
 
@@ -51,10 +54,10 @@ func TestLimitRepository_Update(t *testing.T) {
 
 	t.Run("Success", func(t *testing.T) {
 		mock.ExpectExec("UPDATE user_facility_limits").
-			WithArgs(500000, 1).
+			WithArgs(int64(500000), 1).
 			WillReturnResult(pgxmock.NewResult("UPDATE", 1))
 
-		err := repo.Update(context.Background(), 1, 500000)
+		err := repo.Update(context.Background(), 1, int64(500000))
 		assert.NoError(t, err)
 	})
 }

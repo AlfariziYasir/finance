@@ -1,4 +1,8 @@
 {
+    "schemes": [
+        "http",
+        "https"
+    ],
     "swagger": "2.0",
     "info": {
         "description": "API for finance simulation system.",
@@ -6,7 +10,7 @@
         "contact": {},
         "version": "1.0"
     },
-    "host": "localhost:8080",
+    "host": "localhost:8181",
     "basePath": "/",
     "paths": {
         "/calculate-installments": {

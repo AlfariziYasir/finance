@@ -5,7 +5,7 @@ WORKDIR /app
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
-RUN CGO_ENABLED=1 GOOS=linux go build -o controller cmd/main.go
+RUN CGO_ENABLED=1 GOOS=linux go build -o finance cmd/main.go
 
 FROM alpine:latest
 WORKDIR /app

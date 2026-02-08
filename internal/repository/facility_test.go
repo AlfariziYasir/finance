@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestFacilityRepositoy_Add(t *testing.T) {
+func TestFacilityRepository_Add(t *testing.T) {
 	mock, err := pgxmock.NewPool()
 	assert.NoError(t, err)
 	defer mock.Close()

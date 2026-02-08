@@ -5,31 +5,36 @@ services:
     image: postgres:17-alpine
     container_name: finance_db
     restart: always
-    environtments:
+    environment:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: postgres123
       POSTGRES_DB: finance_db
     ports:
-      - "5432-5432"
+      - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
-  
-  migrate:
-    image: gomicro/goose
+    networks:
+      - finance_net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d finance_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
   
   app:
     build: .
-    container: finance-svc
+    container_name: finance-svc
     ports:
       - "8080:8080"
-    environtments:
-      - DSN=postgres://user:postgres123@localhost:5432/finance_db
+    environment:
+      - DSN=postgres://user:postgres123@db:5432/finance_db?sslmode=disable
       - SERVICE_NAME=finance-system
       - APP_VERSION=v1
       - LOG_LEVEL=debug
       - HTTP_PORT=8080
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     networks:
       - finance_net
 
