@@ -2,9 +2,9 @@ package services
 
 import (
 	"context"
-	"errors"
 	"finance/internal/model"
 	"finance/internal/repository"
+	"finance/pkg/errorx"
 	"finance/pkg/logger"
 	"finance/pkg/postgres"
 	"time"
@@ -111,7 +111,7 @@ func (s *service) Installment(ctx context.Context, amount int64) ([]*model.Insta
 
 	tenors, err := s.tenorRepo.List(ctx)
 	if err != nil {
-		s.log.Error("failed to get list tenors")
+		s.log.Error("failed to get list tenors", zap.Error(err))
 		return nil, err
 	}
 
@@ -135,7 +135,7 @@ func (s *service) Submit(ctx context.Context, req *model.SubmitFinancingRequest)
 	startDate, err := time.Parse("2006-01-02", req.StartDate)
 	if err != nil {
 		s.log.Error("invalid date format", zap.Error(err))
-		return nil, errors.New("invalid date format, use YYYY-MM-DD")
+		return nil, errorx.NewError(errorx.ErrTypeValidation, "invalid date format, use YYYY-MM-DD", err)
 	}
 
 	user, err := s.userRepo.Get(ctx, int(req.UserID))
@@ -154,7 +154,7 @@ func (s *service) Submit(ctx context.Context, req *model.SubmitFinancingRequest)
 		s.log.Warn("amount request over the limit",
 			zap.Int64("req", req.Amount),
 			zap.String("limit", limit.LimitAmount.String()))
-		return nil, errors.New("insufficient limit amount")
+		return nil, errorx.NewError(errorx.ErrInsufficientLimit, "limit balance is not enough", nil)
 	}
 
 	tenor, err := s.tenorRepo.Get(ctx, req.Tenor)
@@ -229,7 +229,7 @@ func (s *service) Submit(ctx context.Context, req *model.SubmitFinancingRequest)
 		UserFacilityID:     int64(facilityID),
 		UserID:             user.UserID,
 		FacilityLimitID:    limit.FacilityLimitID,
-		Amount:             decimal.NewFromInt(req.Amount),
+		Amount:             amountDec,
 		Tenor:              tenor.TenorValue,
 		StartDate:          startDate.Format("2006-01-02"),
 		MonthlyInstallment: monthlyInstallment,

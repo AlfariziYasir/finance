@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"finance/internal/model"
+	"finance/pkg/errorx"
 	"finance/pkg/postgres"
 
 	"github.com/jackc/pgx/v5"
@@ -38,17 +39,17 @@ func (r *tenorRepository) Get(ctx context.Context, tenorValue int) (*model.Tenor
 	rows, err := db.Query(ctx, query, tenorValue)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("tenor not found")
+			return nil, errorx.DbError(err)
 		}
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 
 	tenor, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.Tenor])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("tenor not found")
+			return nil, errorx.DbError(err)
 		}
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 
 	return tenor, nil
@@ -61,17 +62,17 @@ func (r *tenorRepository) List(ctx context.Context) ([]*model.Tenor, error) {
 	rows, err := db.Query(ctx, query)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("tenor not found")
+			return nil, errorx.DbError(err)
 		}
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 
 	ternors, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[model.Tenor])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("tenor not found")
+			return nil, errorx.DbError(err)
 		}
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 
 	return ternors, nil

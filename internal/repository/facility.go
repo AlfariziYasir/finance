@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"finance/internal/model"
+	"finance/pkg/errorx"
 	"finance/pkg/postgres"
 
 	"github.com/jackc/pgx/v5"
@@ -42,7 +43,7 @@ func (r *facilityRepository) Add(ctx context.Context, facility *model.UserFacili
 		RETURNING id`
 	err := db.QueryRow(ctx, query, facility.UserID, facility.FacilityLimitID, facility.Amount, facility.Tenor, facility.StartDate, facility.MonthlyInstallment, facility.TotalMargin, facility.TotalPayment, facility.CreatedAt).Scan(&id)
 	if err != nil {
-		return 0, err
+		return 0, errorx.DbError(err)
 	}
 
 	return id, nil
@@ -54,15 +55,15 @@ func (r *facilityRepository) Get(ctx context.Context, id int) (*model.UserFacili
 	query := `select * from user_facilities where id = $1`
 	rows, err := db.Query(ctx, query, id)
 	if err != nil {
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 
 	facility, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.UserFacility])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("user facility not found")
+			return nil, errorx.DbError(err)
 		}
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 	return facility, nil
 }

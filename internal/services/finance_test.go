@@ -319,7 +319,7 @@ func TestService_Submit(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Nil(t, res)
-		assert.Equal(t, "insufficient limit amount", err.Error())
+		assert.Equal(t, "insufficient limit amount: limit balance is not enough", err.Error())
 	})
 
 	t.Run("error database fail on insert", func(t *testing.T) {

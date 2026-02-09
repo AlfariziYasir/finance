@@ -3,12 +3,12 @@ package handler
 import (
 	"finance/internal/model"
 	"finance/internal/services"
+	"finance/pkg/errorx"
 	"finance/pkg/logger"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
-	"go.uber.org/zap"
 )
 
 type Handler struct {
@@ -35,8 +35,7 @@ func NewHandler(service services.Service, log *logger.Logger) *Handler {
 func (h *Handler) ListUserLimit(c *gin.Context) {
 	resp, err := h.service.ListUserLimit(c.Request.Context())
 	if err != nil {
-		h.log.Error("failed to get list user limit", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Error: err.Error()})
+		errorx.SendError(c, h.log.Logger, err)
 		return
 	}
 	c.JSON(http.StatusOK, resp)
@@ -54,8 +53,7 @@ func (h *Handler) ListUserLimit(c *gin.Context) {
 func (h *Handler) TenorList(c *gin.Context) {
 	resp, err := h.service.TenorList(c.Request.Context())
 	if err != nil {
-		h.log.Error("failed to get tenor list", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Error: err.Error()})
+		errorx.SendError(c, h.log.Logger, err)
 		return
 	}
 	c.JSON(http.StatusOK, resp)
@@ -75,19 +73,14 @@ func (h *Handler) TenorList(c *gin.Context) {
 func (h *Handler) Installment(c *gin.Context) {
 	var req model.CalculateInstallmentsRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.handleValidationError(c, err)
-		return
-	}
-
-	if req.Amount == 0 || req.Amount < 0 {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Error: "amount must be greater than 0"})
+		fields := h.handleValidationError(err)
+		errorx.SendError(c, h.log.Logger, errorx.NewValidationError(fields))
 		return
 	}
 
 	resp, err := h.service.Installment(c.Request.Context(), req.Amount)
 	if err != nil {
-		h.log.Error("failed to calculate installment", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Error: err.Error()})
+		errorx.SendError(c, h.log.Logger, err)
 		return
 	}
 	c.JSON(http.StatusOK, resp)
@@ -108,52 +101,50 @@ func (h *Handler) Installment(c *gin.Context) {
 func (h *Handler) Submit(c *gin.Context) {
 	var req model.SubmitFinancingRequest
 
-	// Validasi Payload (Otomatis cek required, datetime, dan custom notpast)
 	if err := c.ShouldBindJSON(&req); err != nil {
-		h.handleValidationError(c, err)
-		return
-	}
-
-	if req.Amount == 0 || req.Amount < 0 {
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Error: "amount must be greater than 0"})
+		fields := h.handleValidationError(err)
+		errorx.SendError(c, h.log.Logger, errorx.NewValidationError(fields))
 		return
 	}
 
 	resp, err := h.service.Submit(c.Request.Context(), &req)
 	if err != nil {
-		if err.Error() == "insufficient limit amount" {
-			c.JSON(http.StatusUnprocessableEntity, model.ErrorResponse{Error: err.Error()})
-			return
-		}
-
-		h.log.Error("failed to submit financing", zap.Error(err))
-		c.JSON(http.StatusInternalServerError, model.ErrorResponse{Error: err.Error()})
+		errorx.SendError(c, h.log.Logger, err)
 		return
 	}
 
 	c.JSON(http.StatusOK, resp)
 }
 
-func (h *Handler) handleValidationError(c *gin.Context, err error) {
-	if validationErrors, ok := err.(validator.ValidationErrors); ok {
-		errorMsg := ""
-		for _, e := range validationErrors {
-			if e.Tag() == "notpast" {
-				errorMsg = "start_date cannot be in the past"
-				break
-			} else if e.Tag() == "datetime" {
-				errorMsg = "invalid date format, use YYYY-MM-DD"
-				break
-			} else if e.Tag() == "required" {
-				errorMsg = "field " + e.Field() + " is required"
-				break
-			}
-		}
-		if errorMsg == "" {
-			errorMsg = err.Error()
-		}
-		c.JSON(http.StatusBadRequest, model.ErrorResponse{Error: errorMsg})
-		return
+func (h *Handler) handleValidationError(err error) map[string]string {
+	result := make(map[string]string)
+	validationErrors, ok := err.(validator.ValidationErrors)
+	if !ok {
+		result["body"] = "invalid json format or type mismatch"
+		return result
 	}
-	c.JSON(http.StatusBadRequest, model.ErrorResponse{Error: err.Error()})
+
+	for _, e := range validationErrors {
+		fieldName := e.Field()
+		msg := ""
+
+		switch e.Tag() {
+		case "required":
+			msg = "is required"
+		case "gt":
+			msg = "must be greater than " + e.Param()
+		case "notpast":
+			msg = "cannot be in the past"
+		case "datetime":
+			msg = "invalid date format, use YYYY-MM-DD"
+		case "email":
+			msg = "invalid email format"
+		default:
+			msg = "failed validation on tag " + e.Tag()
+		}
+
+		result[fieldName] = msg
+	}
+
+	return result
 }
