@@ -6,7 +6,7 @@ alter table user_facility_limits
 add constraint unique_user_limit unique (user_id);
 
 alter table user_facilities
-add constraint unique_user_facilities unique (user_id, facility_limit_id, start_date, amount, tenor);
+add constraint unique_user_facilities unique (user_id, facility_limit_id, start_date, amount, tenor, created_at);
 
 alter table user_facility_details
 add constraint unique_user_facility_details unique (user_facility_id, due_date);
