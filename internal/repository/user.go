@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"finance/internal/model"
+	"finance/pkg/errorx"
 	"finance/pkg/postgres"
 
 	"github.com/jackc/pgx/v5"
@@ -38,17 +39,17 @@ func (r *userRepository) Get(ctx context.Context, id int) (*model.User, error) {
 	rows, err := db.Query(ctx, query, id)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("user not found")
+			return nil, errorx.DbError(err)
 		}
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 
 	user, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.User])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("user not found")
+			return nil, errorx.DbError(err)
 		}
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 
 	return user, nil
@@ -61,17 +62,17 @@ func (r *userRepository) List(ctx context.Context) ([]*model.User, error) {
 	rows, err := db.Query(ctx, query)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("user not found")
+			return nil, errorx.DbError(err)
 		}
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 
 	users, err := pgx.CollectRows(rows, pgx.RowToAddrOfStructByName[model.User])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("user not found")
+			return nil, errorx.DbError(err)
 		}
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 
 	return users, nil

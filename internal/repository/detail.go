@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"finance/internal/model"
+	"finance/pkg/errorx"
 	"finance/pkg/postgres"
 	"fmt"
 
@@ -51,11 +52,11 @@ func (r *detailRepository) Add(ctx context.Context, details []*model.UserFacilit
 		pgx.CopyFromRows(rows),
 	)
 	if err != nil {
-		return err
+		return errorx.DbError(err)
 	}
 
 	if int(count) != len(details) {
-		return fmt.Errorf("repo: copy count mismatch, expected %d got %d", len(details), count)
+		return errorx.DbError(fmt.Errorf("copy count mismatch, expected %d got %d", len(details), count))
 	}
 
 	return nil
@@ -74,9 +75,9 @@ func (r *detailRepository) Get(ctx context.Context, id int) (*model.UserFacility
 	detail, err := pgx.CollectOneRow(rows, pgx.RowToAddrOfStructByName[model.UserFacilityDetail])
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, errors.New("user facility details not found")
+			return nil, errorx.DbError(err)
 		}
-		return nil, err
+		return nil, errorx.DbError(err)
 	}
 
 	return detail, nil

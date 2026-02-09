@@ -41,7 +41,7 @@ func TestLimitRepository_Get(t *testing.T) {
 		res, err := repo.Get(context.Background(), 99)
 		assert.Error(t, err)
 		assert.Nil(t, res)
-		assert.Equal(t, "user facility limit not found", err.Error())
+		assert.Equal(t, "resource not found: resource not found in database", err.Error())
 	})
 }
 

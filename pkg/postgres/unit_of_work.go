@@ -3,7 +3,7 @@ package postgres
 import (
 	"context"
 	"errors"
-	"fmt"
+	"finance/pkg/errorx"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -28,7 +28,7 @@ func NewTransaction(pool *pgxpool.Pool) Trx {
 func (u *unitOfWork) Begin(ctx context.Context) (context.Context, error) {
 	tx, err := u.pool.Begin(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to begin tx: %w", err)
+		return nil, errorx.DbError(err)
 	}
 
 	return context.WithValue(ctx, TrxKey{}, tx), nil
@@ -37,12 +37,12 @@ func (u *unitOfWork) Begin(ctx context.Context) (context.Context, error) {
 func (u *unitOfWork) Commit(ctx context.Context) error {
 	tx, ok := ctx.Value(TrxKey{}).(pgx.Tx)
 	if !ok {
-		return errors.New("no transaction found in context")
+		return errorx.NewError(errorx.ErrTypeInternal, "failed to fetch data", errors.New("no transaction found in context"))
 	}
 
 	err := tx.Commit(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to commit: %w", err)
+		return errorx.DbError(err)
 	}
 
 	return nil
@@ -51,14 +51,14 @@ func (u *unitOfWork) Commit(ctx context.Context) error {
 func (u *unitOfWork) Rollback(ctx context.Context) error {
 	tx, ok := ctx.Value(TrxKey{}).(pgx.Tx)
 	if !ok {
-		return errors.New("no transaction found in context")
+		return errorx.NewError(errorx.ErrTypeInternal, "failed to fetch data", errors.New("no transaction found in context"))
 	}
 
 	if err := tx.Rollback(ctx); err != nil {
 		if errors.Is(err, pgx.ErrTxClosed) {
 			return nil
 		}
-		return fmt.Errorf("failed to rollback: %w", err)
+		return errorx.DbError(err)
 	}
 	return nil
 }
